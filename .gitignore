@@ -1,0 +1,4 @@
+xeneonctl
+*.dSYM/
+gui/.build/
+gui/.swiftpm/

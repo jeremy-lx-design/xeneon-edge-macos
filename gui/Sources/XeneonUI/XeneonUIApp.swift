@@ -1,0 +1,119 @@
+// A very small SwiftUI front end for the `xeneonctl` CLI: three sliders,
+// nothing else. All the actual DDC/CI protocol work happens in the CLI
+// binary (../xeneonctl); this just shells out to it.
+import SwiftUI
+import Foundation
+
+enum CLI {
+    static let binaryPath: String? = {
+        let repoRelative = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // XeneonUI/
+            .deletingLastPathComponent() // Sources/
+            .deletingLastPathComponent() // gui/
+            .deletingLastPathComponent() // repo root
+            .appendingPathComponent("xeneonctl")
+            .path
+        return [repoRelative, "/usr/local/bin/xeneonctl", "/opt/homebrew/bin/xeneonctl"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }()
+
+    private static func run(_ args: [String]) -> String? {
+        guard let binaryPath else { return nil }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: binaryPath)
+        process.arguments = args
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        process.waitUntilExit()
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func get(_ setting: String) -> Int? {
+        run(["get", setting]).flatMap { $0.split(separator: " ").first }.flatMap { Int($0) }
+    }
+
+    static func set(_ setting: String, _ value: Int) {
+        _ = run(["set", setting, String(value)])
+    }
+}
+
+@main
+struct XeneonUIApp: App {
+    var body: some Scene {
+        WindowGroup("Xeneon Edge") {
+            ContentView()
+        }
+        .windowResizability(.contentSize)
+    }
+}
+
+struct ContentView: View {
+    @State private var brightness: Double = 50
+    @State private var contrast: Double = 50
+    @State private var volume: Double = 50
+    @State private var ready = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.callout)
+            } else if !ready {
+                ProgressView("Reading display…")
+            } else {
+                slider(title: "Brightness", value: $brightness, setting: "brightness")
+                slider(title: "Contrast", value: $contrast, setting: "contrast")
+                slider(title: "Volume", value: $volume, setting: "volume")
+            }
+        }
+        .padding(20)
+        .frame(width: 280)
+        .task { await load() }
+    }
+
+    private func slider(title: String, value: Binding<Double>, setting: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(Int(value.wrappedValue))")
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            Slider(value: value, in: 0...100, step: 1) { editing in
+                guard !editing else { return }
+                let newValue = Int(value.wrappedValue)
+                Task.detached { CLI.set(setting, newValue) }
+            }
+        }
+    }
+
+    private func load() async {
+        guard CLI.binaryPath != nil else {
+            errorMessage = "xeneonctl not found.\nRun 'make' in the project root first."
+            return
+        }
+        let values = await Task.detached { () -> (Int, Int, Int)? in
+            guard let b = CLI.get("brightness"), let c = CLI.get("contrast"), let v = CLI.get("volume") else {
+                return nil
+            }
+            return (b, c, v)
+        }.value
+
+        guard let values else {
+            errorMessage = "Could not read display settings.\nIs the XENEON EDGE connected?"
+            return
+        }
+        (brightness, contrast, volume) = (Double(values.0), Double(values.1), Double(values.2))
+        ready = true
+    }
+}
