@@ -2,3 +2,5 @@ xeneonctl
 *.dSYM/
 gui/.build/
 gui/.swiftpm/
+wakefix/.build/
+wakefix/.swiftpm/

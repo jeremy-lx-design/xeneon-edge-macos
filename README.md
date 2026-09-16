@@ -77,3 +77,10 @@ make            # build ./xeneonctl (the GUI shells out to it)
 cd gui
 swift run
 ```
+
+## Stuck-touch-after-sleep fix (optional)
+
+The Xeneon Edge has a known quirk where its touchscreen can get "stuck" in
+a pressed state after your Mac wakes from sleep, blocking clicks until you
+tap the panel once. There's an optional background helper that automates
+that tap on every wake — see [`wakefix/`](wakefix/README.md).
