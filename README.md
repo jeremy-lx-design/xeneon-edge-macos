@@ -17,13 +17,20 @@ Each archive has the `xeneonctl` command-line tool and a
 double-clickable GUI; the Windows one bundles its own .NET runtime, so
 nothing else needs installing.
 
-| Platform | File |
-| --- | --- |
-| macOS (Apple Silicon) | `xeneonctl-macos-arm64.zip` |
-| Windows (x64) | `xeneonctl-windows-x64.zip` |
+| Platform | File | |
+| --- | --- | --- |
+| Windows (x64) | `xeneonctl-setup-x64.exe` | Installer |
+| macOS (Apple Silicon) | `xeneonctl-macos-arm64.zip` | Archive |
 
-**macOS first launch.** These builds are signed ad-hoc but not notarised,
-so macOS quarantines them after download. Clear it once:
+**Windows.** Run the installer. It installs per-user so there's no admin
+prompt, offers to put a shortcut on your desktop, adds a Start Menu
+entry, and registers an uninstaller under **Add or remove programs**.
+SmartScreen may warn about an unrecognised publisher because the
+installer is unsigned — click **More info** → **Run anyway**.
+
+**macOS.** Unzip anywhere and run **Xeneon Edge.app**, or use the
+`xeneonctl` binary next to it. These builds are signed ad-hoc but not
+notarised, so macOS quarantines them after download. Clear it once:
 
 ```sh
 xattr -dr com.apple.quarantine ~/Downloads/xeneonctl-macos-arm64
@@ -31,9 +38,6 @@ xattr -dr com.apple.quarantine ~/Downloads/xeneonctl-macos-arm64
 
 Or right-click **Xeneon Edge.app** → **Open** → **Open** to approve it
 through Gatekeeper.
-
-**Windows first launch.** SmartScreen may warn about an unrecognised
-publisher — click **More info** → **Run anyway**.
 
 Releases are built by [GitHub Actions](.github/workflows/release.yml) on
 every `v*` tag.
@@ -133,12 +137,18 @@ SwiftUI on macOS ([`gui/`](gui/)), WinForms on Windows
 ([`gui-windows/`](gui-windows/)). The Windows GUI needs the
 [.NET SDK](https://dotnet.microsoft.com/download) (8.0 or newer).
 
-To package the same thing the releases ship — a `.app` bundle on macOS,
-a self-contained `.exe` on Windows — into `dist/`:
+To package the same thing the releases ship into `dist/` — a `.app`
+bundle on macOS, an installer on Windows:
 
 ```sh
 make dist
 ```
+
+Building the Windows installer additionally needs [Inno
+Setup](https://jrsoftware.org/isinfo.php) on `PATH` (`choco install
+innosetup`). The app icon is committed as `gui-windows/XeneonUI.ico`;
+`make icon` regenerates it from `gui-windows/icon.svg` and needs
+`rsvg-convert` and ImageMagick.
 
 ## Stuck-touch-after-sleep fix (macOS only)
 

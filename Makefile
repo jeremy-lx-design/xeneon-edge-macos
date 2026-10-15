@@ -46,8 +46,17 @@ WAKEFIX_LABEL = com.xeneonctl.wakefix
 WAKEFIX_PLIST = $(HOME)/Library/LaunchAgents/$(WAKEFIX_LABEL).plist
 
 DIST_DIR = dist/$(DIST_NAME)
+INSTALLER = dist/xeneonctl-setup-x64.exe
 
-.PHONY: all install uninstall clean dist gui wakefix install-wakefix uninstall-wakefix
+# Release version for the installer metadata. --abbrev=0 yields the bare
+# tag (v1.2.3 -> 1.2.3) rather than a commit-ish, which keeps it a valid
+# version number for the installer's version resource.
+VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+ifeq ($(VERSION),)
+VERSION := 0.0.0
+endif
+
+.PHONY: all install uninstall clean dist icon gui wakefix install-wakefix uninstall-wakefix
 
 all: $(NAME)
 
@@ -83,8 +92,18 @@ clean:
 gui: $(NAME)
 	$(GUI_RUN)
 
-# Assemble a self-contained folder for people who don't want to build
-# anything. The release workflow just zips what this produces.
+# Regenerate the committed Windows app icon from its SVG source. Only
+# needed after editing icon.svg; needs rsvg-convert and ImageMagick.
+ICON_SIZES = 16 24 32 48 64 128 256
+icon:
+	@mkdir -p dist
+	@for s in $(ICON_SIZES); do rsvg-convert -w $$s -h $$s gui-windows/icon.svg -o dist/icon-$$s.png || exit 1; done
+	magick $(foreach s,$(ICON_SIZES),dist/icon-$(s).png) gui-windows/XeneonUI.ico
+	rm -f $(foreach s,$(ICON_SIZES),dist/icon-$(s).png)
+	@echo "Regenerated gui-windows/XeneonUI.ico"
+
+# Build something a non-developer can just run: an installer on Windows,
+# a .app bundle on macOS. The release workflow publishes what this makes.
 ifeq ($(PLATFORM),windows)
 
 dist: $(NAME)
@@ -99,7 +118,10 @@ dist: $(NAME)
 		-o "$(DIST_DIR)"
 	cp $(NAME) "$(DIST_DIR)/$(NAME)"
 	cp README.md LICENSE "$(DIST_DIR)/"
-	@echo "Staged $(DIST_DIR)"
+	# All paths live in the .iss so none have to survive MSYS2's path
+	# rewriting; the double slash keeps //D from becoming a Windows path.
+	iscc //DAppVersion=$(VERSION) packaging/xeneonctl.iss
+	@echo "Built $(INSTALLER)"
 
 else
 

@@ -97,6 +97,10 @@ public class MainForm : Form
         ClientSize = new Size(300, 250);
         Padding = new Padding(16);
         Font = SystemFonts.MessageBoxFont ?? SystemFonts.DefaultFont;
+        // ApplicationIcon only sets the icon Explorer shows on the .exe;
+        // the title bar and taskbar need it set on the form too.
+        if (Environment.ProcessPath is string exePath)
+            Icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
 
         // Sliders take all the width; the value readout gets just what it needs.
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
