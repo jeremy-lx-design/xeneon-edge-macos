@@ -93,12 +93,12 @@ gui: $(NAME)
 	$(GUI_RUN)
 
 # Regenerate the committed Windows app icon from its SVG source. Only
-# needed after editing icon.svg; needs rsvg-convert and ImageMagick.
+# needed after editing icon.svg; needs rsvg-convert and python3.
 ICON_SIZES = 16 24 32 48 64 128 256
 icon:
 	@mkdir -p dist
 	@for s in $(ICON_SIZES); do rsvg-convert -w $$s -h $$s gui-windows/icon.svg -o dist/icon-$$s.png || exit 1; done
-	magick $(foreach s,$(ICON_SIZES),dist/icon-$(s).png) gui-windows/XeneonUI.ico
+	python3 packaging/png2ico.py gui-windows/XeneonUI.ico $(foreach s,$(ICON_SIZES),dist/icon-$(s).png)
 	rm -f $(foreach s,$(ICON_SIZES),dist/icon-$(s).png)
 	@echo "Regenerated gui-windows/XeneonUI.ico"
 
