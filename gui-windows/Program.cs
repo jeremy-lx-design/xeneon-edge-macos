@@ -136,24 +136,22 @@ public class MainForm : Form
             return;
         }
 
-        var values = await Task.Run<(int Brightness, int Contrast, int Volume)?>(() =>
-        {
-            int? b = CLI.Get("brightness");
-            int? c = CLI.Get("contrast");
-            int? v = CLI.Get("volume");
-            return (b is null || c is null || v is null) ? null : (b.Value, c.Value, v.Value);
-        });
+        // Not every panel implements every setting - the XENEON EDGE has no
+        // speakers, so it rejects volume - so only show the sliders for the
+        // settings that actually read back.
+        var (b, c, v) = await Task.Run(() =>
+            (CLI.Get("brightness"), CLI.Get("contrast"), CLI.Get("volume")));
 
-        if (values is null)
+        if (b is null && c is null && v is null)
         {
             ShowMessage("Could not read display settings.\nIs the XENEON EDGE connected?", Color.Firebrick);
             return;
         }
 
         ResetLayout();
-        AddSlider("Brightness", "brightness", values.Value.Brightness);
-        AddSlider("Contrast", "contrast", values.Value.Contrast);
-        AddSlider("Volume", "volume", values.Value.Volume);
+        if (b is int brightness) AddSlider("Brightness", "brightness", brightness);
+        if (c is int contrast) AddSlider("Contrast", "contrast", contrast);
+        if (v is int volume) AddSlider("Volume", "volume", volume);
     }
 
     private void AddSlider(string title, string setting, int initialValue)

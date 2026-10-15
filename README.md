@@ -127,6 +127,8 @@ make uninstall
 A very small window with three sliders (brightness, contrast, volume), if
 you'd rather not use the command line. It just shells out to the
 `xeneonctl` binary above.
+Sliders for settings your display doesn't support are hidden — the
+XENEON EDGE has no speakers, so it shows brightness and contrast only.
 
 ```sh
 make gui

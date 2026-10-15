@@ -64,9 +64,10 @@ struct XeneonUIApp: App {
 }
 
 struct ContentView: View {
-    @State private var brightness: Double = 50
-    @State private var contrast: Double = 50
-    @State private var volume: Double = 50
+    // nil when the display doesn't support that setting.
+    @State private var brightness: Double?
+    @State private var contrast: Double?
+    @State private var volume: Double?
     @State private var ready = false
     @State private var errorMessage: String?
 
@@ -79,9 +80,15 @@ struct ContentView: View {
             } else if !ready {
                 ProgressView("Reading display…")
             } else {
-                slider(title: "Brightness", value: $brightness, setting: "brightness")
-                slider(title: "Contrast", value: $contrast, setting: "contrast")
-                slider(title: "Volume", value: $volume, setting: "volume")
+                if let value = Binding($brightness) {
+                    slider(title: "Brightness", value: value, setting: "brightness")
+                }
+                if let value = Binding($contrast) {
+                    slider(title: "Contrast", value: value, setting: "contrast")
+                }
+                if let value = Binding($volume) {
+                    slider(title: "Volume", value: value, setting: "volume")
+                }
             }
         }
         .padding(20)
@@ -111,18 +118,18 @@ struct ContentView: View {
             errorMessage = "xeneonctl not found.\nRun 'make' in the project root first."
             return
         }
-        let values = await Task.detached { () -> (Int, Int, Int)? in
-            guard let b = CLI.get("brightness"), let c = CLI.get("contrast"), let v = CLI.get("volume") else {
-                return nil
-            }
-            return (b, c, v)
+        // Not every panel implements every setting - the XENEON EDGE has no
+        // speakers, so it rejects volume - so only show the sliders for the
+        // settings that actually read back.
+        let (b, c, v) = await Task.detached {
+            (CLI.get("brightness"), CLI.get("contrast"), CLI.get("volume"))
         }.value
 
-        guard let values else {
+        guard b != nil || c != nil || v != nil else {
             errorMessage = "Could not read display settings.\nIs the XENEON EDGE connected?"
             return
         }
-        (brightness, contrast, volume) = (Double(values.0), Double(values.1), Double(values.2))
+        (brightness, contrast, volume) = (b.map(Double.init), c.map(Double.init), v.map(Double.init))
         ready = true
     }
 }
