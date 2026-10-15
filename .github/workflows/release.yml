@@ -1,0 +1,125 @@
+name: Release
+
+# Tag a commit to cut a release:
+#   git tag v1.0.0 && git push origin v1.0.0
+# Or run it by hand from the Actions tab to test the build without tagging
+# (that uploads artifacts but publishes no release).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: Build macOS (Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make dist
+
+      - name: Package
+        # ditto, not zip: it preserves the code signature and the bundle's
+        # extended attributes, which a plain zip can mangle.
+        run: ditto -c -k --keepParent dist/xeneonctl-macos-arm64 xeneonctl-macos-arm64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xeneonctl-macos-arm64
+          path: xeneonctl-macos-arm64.zip
+          if-no-files-found: error
+
+  windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          # path-type: inherit so the runner's dotnet stays callable from
+          # inside the MSYS2 shell that runs make.
+          path-type: inherit
+          install: >-
+            make
+            zip
+            mingw-w64-x86_64-gcc
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build
+        run: make dist
+
+      - name: Package
+        run: cd dist && zip -r ../xeneonctl-windows-x64.zip xeneonctl-windows-x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xeneonctl-windows-x64
+          path: xeneonctl-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [macos, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat > notes.md <<'NOTES'
+          ## Downloads
+
+          | Platform | File |
+          | --- | --- |
+          | macOS (Apple Silicon) | `xeneonctl-macos-arm64.zip` |
+          | Windows (x64) | `xeneonctl-windows-x64.zip` |
+
+          Each archive contains the `xeneonctl` command-line tool and a
+          double-clickable GUI. Nothing else needs installing — the Windows
+          GUI bundles its own .NET runtime.
+
+          ### macOS: first launch
+
+          These builds are signed ad-hoc but **not notarised**, so macOS
+          quarantines them after download. Clear it once:
+
+          ```sh
+          xattr -dr com.apple.quarantine ~/Downloads/xeneonctl-macos-arm64
+          ```
+
+          Or right-click **Xeneon Edge.app** → **Open** → **Open** to approve
+          it through Gatekeeper.
+
+          Requires an Apple Silicon Mac.
+
+          ### Windows: first launch
+
+          SmartScreen may warn about an unrecognised publisher. Click
+          **More info** → **Run anyway**.
+          NOTES
+
+          gh release create "$TAG" artifacts/*/*.zip \
+            --title "$TAG" \
+            --notes-file notes.md

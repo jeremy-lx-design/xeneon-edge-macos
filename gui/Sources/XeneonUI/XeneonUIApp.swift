@@ -6,6 +6,14 @@ import Foundation
 
 enum CLI {
     static let binaryPath: String? = {
+        // Next to the running executable: how a downloaded release is laid
+        // out, with xeneonctl alongside the app binary in Contents/MacOS.
+        let adjacent = Bundle.main.executableURL?
+            .deletingLastPathComponent()
+            .appendingPathComponent("xeneonctl")
+            .path
+        // #filePath is the source location at build time, so this only
+        // resolves when running from a checkout - which is the point.
         let repoRelative = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent() // XeneonUI/
             .deletingLastPathComponent() // Sources/
@@ -13,7 +21,8 @@ enum CLI {
             .deletingLastPathComponent() // repo root
             .appendingPathComponent("xeneonctl")
             .path
-        return [repoRelative, "/usr/local/bin/xeneonctl", "/opt/homebrew/bin/xeneonctl"]
+        return [adjacent, repoRelative, "/usr/local/bin/xeneonctl", "/opt/homebrew/bin/xeneonctl"]
+            .compactMap { $0 }
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }()
 

@@ -1,5 +1,6 @@
 xeneonctl
 xeneonctl.exe
+dist/
 *.dSYM/
 *.obj
 gui/.build/

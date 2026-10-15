@@ -8,6 +8,36 @@ Runs on **macOS (Apple Silicon)** and **Windows**. It should also work
 with any other DDC/CI-capable external display, since it just speaks
 standard DDC/CI (VESA MCCS) to whatever panel it finds.
 
+## Download a release
+
+If you just want the tool and don't want to build anything, grab the
+latest build from the [Releases
+page](https://github.com/jeremy-lx-design/xeneon-edge-macos/releases).
+Each archive has the `xeneonctl` command-line tool and a
+double-clickable GUI; the Windows one bundles its own .NET runtime, so
+nothing else needs installing.
+
+| Platform | File |
+| --- | --- |
+| macOS (Apple Silicon) | `xeneonctl-macos-arm64.zip` |
+| Windows (x64) | `xeneonctl-windows-x64.zip` |
+
+**macOS first launch.** These builds are signed ad-hoc but not notarised,
+so macOS quarantines them after download. Clear it once:
+
+```sh
+xattr -dr com.apple.quarantine ~/Downloads/xeneonctl-macos-arm64
+```
+
+Or right-click **Xeneon Edge.app** → **Open** → **Open** to approve it
+through Gatekeeper.
+
+**Windows first launch.** SmartScreen may warn about an unrecognised
+publisher — click **More info** → **Run anyway**.
+
+Releases are built by [GitHub Actions](.github/workflows/release.yml) on
+every `v*` tag.
+
 ## How it works
 
 DDC/CI is a standard side-channel that lets a computer read and write a
@@ -34,7 +64,7 @@ the `Makefile` picks the right one automatically:
 Either way: no kernel extensions, no drivers, no daemons, no third-party
 libraries.
 
-## Install
+## Build from source
 
 **macOS** — requires the Xcode Command Line Tools
 (`xcode-select --install` if you don't already have them).
@@ -102,6 +132,13 @@ This builds the CLI first, then launches the GUI for your platform —
 SwiftUI on macOS ([`gui/`](gui/)), WinForms on Windows
 ([`gui-windows/`](gui-windows/)). The Windows GUI needs the
 [.NET SDK](https://dotnet.microsoft.com/download) (8.0 or newer).
+
+To package the same thing the releases ship — a `.app` bundle on macOS,
+a self-contained `.exe` on Windows — into `dist/`:
+
+```sh
+make dist
+```
 
 ## Stuck-touch-after-sleep fix (macOS only)
 

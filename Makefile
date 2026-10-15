@@ -20,6 +20,7 @@ LDLIBS   = -ldxva2 -luser32
 BIN_DIR  = $(subst \,/,$(LOCALAPPDATA))/Programs/xeneonctl
 SUDO     =
 GUI_RUN  = dotnet run --project gui-windows
+DIST_NAME = xeneonctl-windows-x64
 
 else ifeq ($(PLATFORM),Darwin)
 
@@ -31,6 +32,7 @@ LDLIBS   = -framework CoreDisplay -framework IOKit -framework Foundation -framew
 BIN_DIR  = /usr/local/bin
 SUDO     = sudo
 GUI_RUN  = swift run --package-path gui
+DIST_NAME = xeneonctl-macos-arm64
 
 else
 
@@ -43,7 +45,9 @@ WAKEFIX_BIN   = wakefix/.build/release/XeneonWakeFix
 WAKEFIX_LABEL = com.xeneonctl.wakefix
 WAKEFIX_PLIST = $(HOME)/Library/LaunchAgents/$(WAKEFIX_LABEL).plist
 
-.PHONY: all install uninstall clean gui wakefix install-wakefix uninstall-wakefix
+DIST_DIR = dist/$(DIST_NAME)
+
+.PHONY: all install uninstall clean dist gui wakefix install-wakefix uninstall-wakefix
 
 all: $(NAME)
 
@@ -73,10 +77,51 @@ uninstall:
 
 clean:
 	rm -f $(NAME)
+	rm -rf dist
 
 # Small slider window that shells out to the CLI above, so build that first.
 gui: $(NAME)
 	$(GUI_RUN)
+
+# Assemble a self-contained folder for people who don't want to build
+# anything. The release workflow just zips what this produces.
+ifeq ($(PLATFORM),windows)
+
+dist: $(NAME)
+	rm -rf "$(DIST_DIR)"
+	mkdir -p "$(DIST_DIR)"
+	# Self-contained so the target machine needs no .NET install.
+	dotnet publish gui-windows -c Release -r win-x64 \
+		--self-contained true \
+		-p:PublishSingleFile=true \
+		-p:EnableCompressionInSingleFile=true \
+		-p:DebugType=none \
+		-o "$(DIST_DIR)"
+	cp $(NAME) "$(DIST_DIR)/$(NAME)"
+	cp README.md LICENSE "$(DIST_DIR)/"
+	@echo "Staged $(DIST_DIR)"
+
+else
+
+APP_BUNDLE = $(DIST_DIR)/Xeneon Edge.app
+
+dist: $(NAME)
+	rm -rf "$(DIST_DIR)"
+	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
+	swift build -c release --package-path gui
+	cp gui/.build/release/XeneonUI "$(APP_BUNDLE)/Contents/MacOS/XeneonUI"
+	cp gui/Info.plist "$(APP_BUNDLE)/Contents/Info.plist"
+	# The GUI looks for the CLI next to its own executable first.
+	cp $(NAME) "$(APP_BUNDLE)/Contents/MacOS/$(NAME)"
+	cp $(NAME) "$(DIST_DIR)/$(NAME)"
+	cp README.md LICENSE "$(DIST_DIR)/"
+	# Apple Silicon refuses to run unsigned binaries at all, so ad-hoc sign.
+	# This is not notarisation - see "Download a release" in the README.
+	codesign --force --sign - "$(APP_BUNDLE)/Contents/MacOS/$(NAME)"
+	codesign --force --sign - "$(APP_BUNDLE)"
+	@echo "Staged $(DIST_DIR)"
+
+endif
 
 # Optional: background helper that clears the Xeneon Edge's known
 # "stuck touch" state on wake from sleep. See wakefix/README.md.
