@@ -1,6 +1,10 @@
 xeneonctl
+xeneonctl.exe
 *.dSYM/
+*.obj
 gui/.build/
 gui/.swiftpm/
 wakefix/.build/
 wakefix/.swiftpm/
+gui-windows/bin/
+gui-windows/obj/
